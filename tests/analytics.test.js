@@ -1,0 +1,12 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {matches,summarize,groupMaps,coachReport} from '../src/analytics.js';
+test('synthetic fixture is deterministic and unique',()=>{assert.equal(matches.length,30);assert.equal(new Set(matches.map(m=>m.id)).size,30);assert.ok(matches.every(m=>m.id.startsWith('DEMO-')))});
+test('summary calculates totals and ratios',()=>{const s=summarize([{won:true,kills:5,deaths:2},{won:false,kills:1,deaths:4}]);assert.deepEqual(s,{count:2,wins:1,winRate:50,kills:6,deaths:6,kd:'1.00'})});
+test('empty and zero-death samples do not produce invalid ratios',()=>{assert.equal(summarize([]).winRate,0);assert.equal(summarize([]).kd,'—');assert.equal(summarize([{won:true,kills:5,deaths:0}]).kd,'—')});
+test('map groups reconcile to total',()=>assert.equal(groupMaps(matches).reduce((s,g)=>s+g.count,0),matches.length));
+test('coach preserves evidence limits and practice budget',()=>{const r=coachReport(matches,'Support',30);assert.match(r.body,/not proof/);assert.equal(r.focus.length,3);assert.match(r.focus[1].detail,/15 minutes/);assert.match(r.focus[1].title,/support/)});
+test('empty coaching state has no invented recommendations',()=>{assert.equal(coachReport([]).focus.length,0);assert.equal(coachReport([]).confidence,'No evidence')});
+import { demoProvider, statsCcProvider, languageModelProvider } from '../src/providers.js';
+test('demo provider returns copies and explicit provenance',async()=>{const data=await demoProvider.listMatches();assert.equal(data.length,30);assert.equal(data[0].source,'synthetic');data[0].kills=999;assert.notEqual(matches[0].kills,999)});
+test('unconfigured providers fail explicitly instead of simulating live access',async()=>{await assert.rejects(statsCcProvider.listMatches(),/not implemented/);await assert.rejects(languageModelProvider.generateReport(),/No language model/)});
